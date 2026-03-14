@@ -2,39 +2,62 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Fine-Grain Snake</title>
+    <title>Fine-Grain Snake - Manual Start</title>
     <style>
         body { display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #1a1a1a; color: #00ff41; font-family: 'Courier New', Courier, monospace; flex-direction: column; }
-        canvas { border: 2px solid #00ff41; background-color: #000; image-rendering: pixelated; }
+        canvas { border: 2px solid #00ff41; background-color: #000; display: block; }
+        .ui-container { position: relative; width: 400px; height: 400px; }
+        #overlay { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            display: flex; justify-content: center; align-items: center; 
+            background: rgba(0,0,0,0.7); font-weight: bold; font-size: 1.2rem;
+            text-align: center; pointer-events: none;
+        }
         h1 { margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; }
     </style>
 </head>
 <body>
 
     <h1>Score: <span id="score">0</span></h1>
-    <canvas id="snakeGame" width="400" height="400"></canvas>
+    <div class="ui-container">
+        <canvas id="snakeGame" width="400" height="400"></canvas>
+        <div id="overlay">PRESS AN ARROW KEY<br>TO START</div>
+    </div>
 
     <script>
         const canvas = document.getElementById("snakeGame");
         const ctx = canvas.getContext("2d");
         const scoreElement = document.getElementById("score");
+        const overlay = document.getElementById("overlay");
 
-        // --- GRID SETTINGS ---
-        const box = 10; // Smaller boxes for a finer grid
-        const gridCount = canvas.width / box; // 400 / 10 = 40 boxes across
+        const box = 10;
+        const gridCount = canvas.width / box;
         
         let score = 0;
         let snake = [{ x: 20 * box, y: 20 * box }];
         let food = getRandomFood();
-        let d = "RIGHT"; // Start moving right immediately
-        let nextD = "RIGHT";
+        
+        // Direction starts as null so the snake sits still
+        let d = null;
+        let nextD = null;
+        let gameStarted = false;
 
-        // Prevent "self-collision" by buffering the next direction
         document.addEventListener("keydown", (e) => {
-            if(e.keyCode == 37 && d != "RIGHT") nextD = "LEFT";
-            else if(e.keyCode == 38 && d != "DOWN") nextD = "UP";
-            else if(e.keyCode == 39 && d != "LEFT") nextD = "RIGHT";
-            else if(e.keyCode == 40 && d != "UP") nextD = "DOWN";
+            // Map arrow keys to directions
+            let newDir = null;
+            if(e.keyCode == 37 && d != "RIGHT") newDir = "LEFT";
+            else if(e.keyCode == 38 && d != "DOWN") newDir = "UP";
+            else if(e.keyCode == 39 && d != "LEFT") newDir = "RIGHT";
+            else if(e.keyCode == 40 && d != "UP") newDir = "DOWN";
+
+            if(newDir) {
+                nextD = newDir;
+                // If it's the first move, hide the overlay and start logic
+                if(!gameStarted) {
+                    gameStarted = true;
+                    overlay.style.display = "none";
+                }
+            }
         });
 
         function getRandomFood() {
@@ -45,48 +68,52 @@
         }
 
         function draw() {
-            d = nextD; // Apply the buffered direction
-            
+            // Clear background
             ctx.fillStyle = "black";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Draw Snake
-            for(let i = 0; i < snake.length; i++) {
-                ctx.fillStyle = (i == 0) ? "#00ff41" : "#008f11"; 
-                ctx.fillRect(snake[i].x, snake[i].y, box - 1, box - 1); // -1 creates a tiny gap between segments
-            }
 
             // Draw Food
             ctx.fillStyle = "#ff3e3e";
             ctx.fillRect(food.x, food.y, box, box);
 
-            let snakeX = snake[0].x;
-            let snakeY = snake[0].y;
-
-            if(d == "LEFT") snakeX -= box;
-            if(d == "UP")   snakeY -= box;
-            if(d == "RIGHT") snakeX += box;
-            if(d == "DOWN")  snakeY += box;
-
-            // Collision with Food
-            if(snakeX == food.x && snakeY == food.y) {
-                score++;
-                scoreElement.innerHTML = score;
-                food = getRandomFood();
-            } else {
-                snake.pop();
+            // Draw Snake
+            for(let i = 0; i < snake.length; i++) {
+                ctx.fillStyle = (i == 0) ? "#00ff41" : "#008f11"; 
+                ctx.fillRect(snake[i].x, snake[i].y, box - 1, box - 1);
             }
 
-            let newHead = { x: snakeX, y: snakeY };
+            // Only move the snake if the game has started
+            if (gameStarted) {
+                d = nextD;
+                
+                let snakeX = snake[0].x;
+                let snakeY = snake[0].y;
 
-            // Game Over: Walls or Self
-            if(snakeX < 0 || snakeX >= canvas.width || snakeY < 0 || snakeY >= canvas.height || collision(newHead, snake)) {
-                clearInterval(game);
-                alert("Game Over! Score: " + score);
-                location.reload();
+                if(d == "LEFT") snakeX -= box;
+                if(d == "UP")   snakeY -= box;
+                if(d == "RIGHT") snakeX += box;
+                if(d == "DOWN")  snakeY += box;
+
+                // Food collision
+                if(snakeX == food.x && snakeY == food.y) {
+                    score++;
+                    scoreElement.innerHTML = score;
+                    food = getRandomFood();
+                } else {
+                    snake.pop();
+                }
+
+                let newHead = { x: snakeX, y: snakeY };
+
+                // Game Over logic
+                if(snakeX < 0 || snakeX >= canvas.width || snakeY < 0 || snakeY >= canvas.height || collision(newHead, snake)) {
+                    clearInterval(gameLoop);
+                    alert("Game Over! Score: " + score);
+                    location.reload();
+                }
+
+                snake.unshift(newHead);
             }
-
-            snake.unshift(newHead);
         }
 
         function collision(head, array) {
@@ -96,8 +123,8 @@
             return false;
         }
 
-        // Increase 100 to make it slower, decrease to make it faster
-        let game = setInterval(draw, 70); 
+        // Run the draw function every 70ms
+        const gameLoop = setInterval(draw, 70);
     </script>
 </body>
 </html>
